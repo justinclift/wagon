@@ -121,8 +121,6 @@ func NewVM(module *wasm.Module, opts ...VMOption) (*VM, error) {
 
 	// If operation logging is enabled, connect to the database
 	var err error
-	var dbRun int
-	var pool *pgx.ConnPool
 	if vm.DoOpLogging {
 		vm.PGConfig = pgx.ConnConfig{
 			Host:      "/tmp",
@@ -132,19 +130,25 @@ func NewVM(module *wasm.Module, opts ...VMOption) (*VM, error) {
 		}
 
 		pgPoolConfig := pgx.ConnPoolConfig{vm.PGConfig, 45, nil, 5 * time.Second}
-		pool, err = pgx.NewConnPool(pgPoolConfig)
+		vm.pg, err = pgx.NewConnPool(pgPoolConfig)
 		if err != nil {
 			panic(err)
 		}
 
 		// Grab the next available execution_run number
 		dbQuery := `SELECT nextval('execution_runs_seq')`
-		err = pool.QueryRow(dbQuery).Scan(&dbRun)
+		err = vm.pg.QueryRow(dbQuery).Scan(&vm.PgRunNum)
 		if err != nil {
 			log.Printf("Retrieving next execution run number failed: %v\n", err)
 			return nil, err
 		}
-		log.Printf("opLog execution run: %d\n", dbRun)
+		log.Printf("opLog execution run: %d\n", vm.PgRunNum)
+
+		// Begin a PostgreSQL transaction
+		vm.PgTx, err = vm.pg.Begin()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	if module.Memory != nil && len(module.Memory.Entries) != 0 {
@@ -268,7 +272,9 @@ func (vm *VM) fetchInt8() int8 {
 }
 
 func (vm *VM) fetchUint32() uint32 {
-	v := endianess.Uint32(vm.ctx.code[vm.ctx.pc:])
+	z := vm.ctx.code[vm.ctx.pc:]
+	v := endianess.Uint32(z)
+	// v := endianess.Uint32(vm.ctx.code[vm.ctx.pc:])
 	vm.ctx.pc += 4
 	return v
 }
@@ -413,6 +419,14 @@ func (vm *VM) ExecCode(fnIndex int64, args ...uint64) (rtrn interface{}, err err
 		}
 	}
 
+	// Set up an automatic transaction commit for the opLogging
+	defer func() {
+		err = vm.PgTx.Commit()
+		if err != nil {
+			panic(err)
+		}
+	}()
+
 	return rtrn, nil
 }
 
@@ -421,40 +435,63 @@ outer:
 	for int(vm.ctx.pc) < len(vm.ctx.code) && !vm.abort {
 		op := vm.ctx.code[vm.ctx.pc]
 		vm.ctx.pc++
+		opStk := uint64(0) // Only used for opLogging
 		switch op {
 		case ops.Return:
 
-			opLog(vm, op, "Return", []string{},
-				[]interface{}{})
+			// Log this operation
+			if len(vm.ctx.stack) > 0 {
+				opStk = vm.ctx.stack[0]
+			}
+			opLog(vm, op, "Return", []string{"program_counter", "stack_top"}, []interface{}{vm.ctx.pc, opStk})
 
 			break outer
 		case compile.OpJmp:
+			origPC := vm.ctx.pc
 			vm.ctx.pc = vm.fetchInt64()
 
-			var stk uint64
+			// Log this operation
 			if len(vm.ctx.stack) > 0 {
-				stk = vm.ctx.stack[0]
+				opStk = vm.ctx.stack[0]
 			}
-			opLog(vm, op, "Jmp unconditional", []string{"program_counter", "stack_top"}, []interface{}{vm.ctx.pc, stk})
+			opLog(vm, op, "Jmp unconditional", []string{"program_counter", "stack_top", "target"},
+				[]interface{}{origPC, opStk, vm.ctx.pc})
 			continue
 		case compile.OpJmpZ:
+			stackLenStart := len(vm.ctx.stack)
+
 			target := vm.fetchInt64()
-			if vm.popUint32() == 0 {
+			origPC := vm.ctx.pc
+
+			stackLenFinish := len(vm.ctx.stack)
+
+			cond := vm.popUint32() == 0
+			opLog(vm, op, "Jmp if zero", []string{"program_counter", "stack_top", "condition_met", "target", "stack_length_start", "stack_length_finish"},
+				[]interface{}{origPC, opStk, cond, target, stackLenStart, stackLenFinish})
+
+			if cond {
 				vm.ctx.pc = target
 				continue
 			}
 		case compile.OpJmpNz:
+			stackLenStart := len(vm.ctx.stack)
+
 			target := vm.fetchInt64()
 			preserveTop := vm.fetchBool()
 			discard := vm.fetchInt64()
+			cond := vm.popUint32() != 0
 
-			var stk uint64
+			stackLenFinish := len(vm.ctx.stack)
+
+			// Log this operation
 			if len(vm.ctx.stack) > 0 {
-				stk = vm.ctx.stack[0]
+				opStk = vm.ctx.stack[0]
 			}
+			origPC := vm.ctx.pc
+			opLog(vm, op, "Jmp if Not Zero / branch if", []string{"program_counter", "stack_top", "target", "preserve_top", "discard", "condition_met", "stack_length_start", "stack_length_finish"},
+				[]interface{}{origPC, opStk, target, preserveTop, discard, cond, stackLenStart, stackLenFinish})
 
-			z := vm.popUint32()
-			if z != 0 {
+			if cond {
 				vm.ctx.pc = target
 				var top uint64
 				if preserveTop {
@@ -464,13 +501,7 @@ outer:
 				if preserveTop {
 					vm.pushUint64(top)
 				}
-				// TODO: Should this capture the stack (etc) state both before and after its changed?
-				opLog(vm, op, "Jmp if Not Zero", []string{"program_counter", "stack_top", "target", "preserve_top", "discard", "condition_met"},
-					[]interface{}{vm.ctx.pc, stk, target, preserveTop, discard, z != 0})
 				continue
-			} else {
-				opLog(vm, op, "Jmp if Not Zero", []string{"program_counter", "stack_top", "target", "preserve_top", "discard", "condition_met"},
-					[]interface{}{vm.ctx.pc, stk, target, preserveTop, discard, z != 0})
 			}
 		case ops.BrTable:
 			index := vm.fetchInt64()
@@ -603,7 +634,7 @@ func (proc *Process) Terminate() {
 
 // Send the opcode data to the database for post-run analysis.  For now we don't return any error code, just to keep
 // the likely bulk code changes somewhat simple
-func opLog(vm *VM, opCode byte, opName string, fields []string, data ...interface{}) {
+func opLog(vm *VM, opCode byte, opName string, fields []string, data []interface{}) {
 	if !vm.DoOpLogging {
 		return
 	}
@@ -639,6 +670,8 @@ func opLog(vm *VM, opCode byte, opName string, fields []string, data ...interfac
 		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1], data[2], data[3], data[4], data[5])
 	case 7:
 		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1], data[2], data[3], data[4], data[5], data[6])
+	case 8:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7])
 	default:
 		log.Printf("Need to add a case for %d to the opLog() function", len(fields))
 		return

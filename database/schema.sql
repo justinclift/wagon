@@ -63,14 +63,11 @@ CREATE TABLE public.execution_run (
     op_num bigint NOT NULL,
     run_num integer,
     op_name text NOT NULL,
-    to_register integer,
     arg_count integer,
     result_value bigint,
     op_code integer,
     memory_address bigint,
-    frame_ip bigint,
     local_id integer,
-    from_register integer,
     from_global bigint,
     to_global bigint,
     base_value bigint,
@@ -81,7 +78,16 @@ CREATE TABLE public.execution_run (
     target bigint,
     condition bigint,
     function_name text,
-    module_name text
+    module_name text,
+    program_counter bigint,
+    stack_top bigint,
+    value bigint,
+    preserve_top boolean,
+    discard integer,
+    condition_met boolean,
+    stack_length_start integer,
+    stack_length_finish integer,
+    function_id integer
 );
 
 

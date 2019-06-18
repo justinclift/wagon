@@ -24,17 +24,31 @@ func (vm *VM) inBounds(offset int) bool {
 	return int(addr)+offset < len(vm.memory)
 }
 
-// curMem returns a slice to the memeory segment pointed to by
+// curMem returns a slice to the memory segment pointed to by
 // the current base address on the bytecode stream.
 func (vm *VM) curMem() []byte {
 	return vm.memory[vm.fetchBaseAddr():]
 }
 
 func (vm *VM) i32Load() {
+	stackLenStart := len(vm.ctx.stack)
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+
+	// The operation we're logging
 	if !vm.inBounds(3) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushUint32(endianess.Uint32(vm.curMem()))
+	addr := vm.fetchBaseAddr()
+	val := endianess.Uint32(vm.memory[addr:])
+	vm.pushUint32(val)
+
+	// Log this operation
+	stackLenFinish := len(vm.ctx.stack)
+	opLog(vm, 0x28, "i32 load", []string{"program_counter", "stack_top", "memory_address", "value", "stack_length_start", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, addr, val, stackLenStart, stackLenFinish})
 }
 
 func (vm *VM) i32Load8s() {
@@ -45,10 +59,24 @@ func (vm *VM) i32Load8s() {
 }
 
 func (vm *VM) i32Load8u() {
+	stackLenStart := len(vm.ctx.stack)
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+
+	// The operation we're logging
 	if !vm.inBounds(0) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushUint32(uint32(uint8(vm.memory[vm.fetchBaseAddr()])))
+	addr := vm.fetchBaseAddr()
+	val := uint32(uint8(vm.memory[addr]))
+	vm.pushUint32(val)
+
+	// Log this operation
+	stackLenFinish := len(vm.ctx.stack)
+	opLog(vm, 0x2D, "i32 load 8-bit unsigned", []string{"program_counter", "stack_top", "memory_address", "value", "stack_length_start", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, addr, val, stackLenStart, stackLenFinish})
 }
 
 func (vm *VM) i32Load16s() {
@@ -145,19 +173,46 @@ func (vm *VM) f64Load() {
 }
 
 func (vm *VM) i32Store() {
-	v := vm.popUint32()
+	stackLenStart := len(vm.ctx.stack)
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+
+	// The operation we're logging
+	val := vm.popUint32()
 	if !vm.inBounds(3) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	endianess.PutUint32(vm.curMem(), v)
+	addr := vm.fetchBaseAddr()
+	mem := vm.memory[addr:]
+	endianess.PutUint32(mem, val)
+
+	// Log this operation
+	stackLenFinish := len(vm.ctx.stack)
+	opLog(vm, 0x36, "i32 store", []string{"program_counter", "stack_top", "memory_address", "value", "stack_length_start", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, addr, val, stackLenStart, stackLenFinish})
 }
 
 func (vm *VM) i32Store8() {
-	v := byte(uint8(vm.popUint32()))
+	stackLenStart := len(vm.ctx.stack)
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+
+	// The operation we're logging
+	val := byte(uint8(vm.popUint32()))
 	if !vm.inBounds(0) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.memory[vm.fetchBaseAddr()] = v
+	addr := vm.fetchBaseAddr()
+	vm.memory[addr] = val
+
+	// Log this operation
+	stackLenFinish := len(vm.ctx.stack)
+	opLog(vm, 0x3A, "i32 store 8-bit", []string{"program_counter", "stack_top", "memory_address", "value", "stack_length_start", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, addr, val, stackLenStart, stackLenFinish})
 }
 
 func (vm *VM) i32Store16() {

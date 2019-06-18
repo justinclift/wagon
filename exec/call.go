@@ -18,9 +18,28 @@ var (
 )
 
 func (vm *VM) call() {
+	stackLenStart := len(vm.ctx.stack)
+
 	index := vm.fetchUint32()
 
+	// Log the start of this operation
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+	opLog(vm, 0x10, "Call function start", []string{"program_counter", "stack_top", "function_id", "stack_length_start"},
+		[]interface{}{vm.ctx.pc, opStk, index, stackLenStart})
+
+	// Do the call
 	vm.funcs[index].call(vm, int64(index))
+
+	// Log the end of this operation
+	stackLenFinish := len(vm.ctx.stack)
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+	opLog(vm, 0x10, "Call function end", []string{"program_counter", "stack_top", "function_id", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, index, stackLenFinish})
 }
 
 func (vm *VM) callIndirect() {

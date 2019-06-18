@@ -24,7 +24,21 @@ func (vm *VM) i32Popcnt() {
 }
 
 func (vm *VM) i32Add() {
-	vm.pushUint32(vm.popUint32() + vm.popUint32())
+	stackLenStart := len(vm.ctx.stack)
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+
+	arg1 := vm.popUint32()
+	arg2 := vm.popUint32()
+	val := arg1 + arg2
+	vm.pushUint32(val)
+
+	// Log this operation
+	stackLenFinish := len(vm.ctx.stack)
+	opLog(vm, 0x6A, "i32 add", []string{"program_counter", "stack_top", "arg_1", "arg_2", "result_value", "stack_length_start", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, arg1, arg2, val, stackLenStart, stackLenFinish})
 }
 
 func (vm *VM) i32Mul() {
@@ -56,9 +70,22 @@ func (vm *VM) i32RemU() {
 }
 
 func (vm *VM) i32Sub() {
+	stackLenStart := len(vm.ctx.stack)
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popUint32()
-	vm.pushUint32(v1 - v2)
+	val := v1 - v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	stackLenFinish := len(vm.ctx.stack)
+	opLog(vm, 0x6A, "i32 sub", []string{"program_counter", "stack_top", "arg_1", "arg_2", "result_value", "stack_length_start", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, v1, v2, val, stackLenStart, stackLenFinish})
 }
 
 func (vm *VM) i32And() {
@@ -152,11 +179,38 @@ func (vm *VM) i32GeU() {
 }
 
 func (vm *VM) i32Eqz() {
-	vm.pushBool(vm.popUint32() == 0)
+	stackLenStart := len(vm.ctx.stack)
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+
+	val := vm.popUint32()
+	cond := val == 0
+	vm.pushBool(cond)
+
+	// Log this operation
+	stackLenFinish := len(vm.ctx.stack)
+	opLog(vm, 0x45, "i32 equal to zero", []string{"program_counter", "stack_top", "condition_met", "value", "stack_length_start", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, cond, val, stackLenStart, stackLenFinish})
 }
 
 func (vm *VM) i32Eq() {
-	vm.pushBool(vm.popUint32() == vm.popUint32())
+	stackLenStart := len(vm.ctx.stack)
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+
+	arg1 := vm.popUint32()
+	arg2 := vm.popUint32()
+	cond := arg1 == arg2
+	vm.pushBool(cond)
+
+	// Log this operation
+	stackLenFinish := len(vm.ctx.stack)
+	opLog(vm, 0x46, "i32 equal", []string{"program_counter", "stack_top", "arg_1", "arg_2", "condition_met", "stack_length_start", "stack_length_finish"},
+		[]interface{}{vm.ctx.pc, opStk, arg1, arg2, cond, stackLenStart, stackLenFinish})
 }
 
 func (vm *VM) i32Ne() {

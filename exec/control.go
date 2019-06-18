@@ -14,4 +14,12 @@ func (vm *VM) unreachable() {
 	panic(ErrUnreachable)
 }
 
-func (vm *VM) nop() {}
+func (vm *VM) nop() {
+	// Log this operation
+	var opStk uint64
+	if len(vm.ctx.stack) > 0 {
+		opStk = vm.ctx.stack[0]
+	}
+	opLog(vm, 0x1, "Nop", []string{"program_counter", "stack_top"},
+		[]interface{}{vm.ctx.pc, opStk})
+}
