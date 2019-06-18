@@ -10,12 +10,15 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
+	"time"
 
 	"github.com/go-interpreter/wagon/disasm"
 	"github.com/go-interpreter/wagon/exec/internal/compile"
 	"github.com/go-interpreter/wagon/wasm"
 	ops "github.com/go-interpreter/wagon/wasm/operators"
+	"github.com/jackc/pgx"
 )
 
 var (
@@ -73,12 +76,20 @@ type VM struct {
 	abort bool // Flag for host functions to terminate execution
 
 	nativeBackend *nativeCompiler
+
+	DoOpLogging bool
+	pg          *pgx.ConnPool
+	PgTx        *pgx.Tx
+	PgRunNum    int
+	PGConfig    pgx.ConnConfig
 }
 
 // As per the WebAssembly spec: https://github.com/WebAssembly/design/blob/27ac254c854994103c24834a994be16f74f54186/Semantics.md#linear-memory
 const wasmPageSize = 65536 // (64 KB)
 
 var endianess = binary.LittleEndian
+
+var opNum int // Simple counter for operation logging
 
 type config struct {
 	EnableAOT bool
@@ -103,6 +114,34 @@ func NewVM(module *wasm.Module, opts ...VMOption) (*VM, error) {
 	var options config
 	for _, opt := range opts {
 		opt(&options)
+	}
+
+	// If operation logging is enabled, connect to the database
+	var err error
+	var dbRun int
+	var pool *pgx.ConnPool
+	if vm.DoOpLogging {
+		vm.PGConfig = pgx.ConnConfig{
+			Host:      "/tmp",
+			User:      "jc",
+			Database:  "wasim",
+			TLSConfig: nil,
+		}
+
+		pgPoolConfig := pgx.ConnPoolConfig{vm.PGConfig, 45, nil, 5 * time.Second}
+		pool, err = pgx.NewConnPool(pgPoolConfig)
+		if err != nil {
+			panic(err)
+		}
+
+		// Grab the next available execution_run number
+		dbQuery := `SELECT nextval('execution_runs_seq')`
+		err = pool.QueryRow(dbQuery).Scan(&dbRun)
+		if err != nil {
+			log.Printf("Retrieving next execution run number failed: %v\n", err)
+			return nil, err
+		}
+		log.Printf("opLog execution run: %d\n", dbRun)
 	}
 
 	if module.Memory != nil && len(module.Memory.Entries) != 0 {
@@ -381,9 +420,14 @@ outer:
 		vm.ctx.pc++
 		switch op {
 		case ops.Return:
+
+			opLog(vm, op, "Return", []string{},
+				[]interface{}{})
+
 			break outer
 		case compile.OpJmp:
 			vm.ctx.pc = vm.fetchInt64()
+			opLog(vm, op, "Jmp unconditional", []string{"program_counter"}, []interface{}{vm.ctx.pc})
 			continue
 		case compile.OpJmpZ:
 			target := vm.fetchInt64()
@@ -395,7 +439,9 @@ outer:
 			target := vm.fetchInt64()
 			preserveTop := vm.fetchBool()
 			discard := vm.fetchInt64()
-			if vm.popUint32() != 0 {
+
+			z := vm.popUint32()
+			if z != 0 {
 				vm.ctx.pc = target
 				var top uint64
 				if preserveTop {
@@ -406,6 +452,9 @@ outer:
 					vm.pushUint64(top)
 				}
 				continue
+			} else {
+				opLog(vm, op, "Jmp if Not Zero", []string{"program_counter", "stack", "target", "preserve_top", "discard"},
+					[]interface{}{vm.ctx.pc, "stack", target, preserveTop, discard})
 			}
 		case ops.BrTable:
 			index := vm.fetchInt64()
@@ -534,4 +583,69 @@ func (proc *Process) WriteAt(p []byte, off int64) (int, error) {
 // Terminate stops the execution of the current module.
 func (proc *Process) Terminate() {
 	proc.vm.abort = true
+}
+
+// Send the opcode data to the database for post-run analysis.  For now we don't return any error code, just to keep
+// the likely bulk code changes somewhat simple
+func opLog(vm *VM, opCode byte, opName string, fields []string, data ...interface{}) {
+	if !vm.DoOpLogging {
+		return
+	}
+	if len(fields) != len(data) {
+		log.Print("Mismatching field and data count to opLog()")
+		return
+	}
+	var s, t string
+	for i, j := range fields {
+		s += ", " + j
+		t += fmt.Sprintf(", $%d", 5+i)
+	}
+	dbQuery := fmt.Sprintf(`
+		INSERT INTO execution_run (op_num, run_num, op_code, op_name%s)
+		VALUES ($1, $2, $3, $4%s)`, s, t)
+	var err error
+	var commandTag pgx.CommandTag
+	// TODO: Surely there's a better way than this?
+	switch len(fields) {
+	case 0:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName)
+	case 1:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0])
+	case 2:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1])
+	case 3:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1], data[2])
+	case 4:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1], data[2], data[3])
+	case 5:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1], data[2], data[3], data[4])
+	case 6:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1], data[2], data[3], data[4], data[5])
+	case 7:
+		commandTag, err = vm.PgTx.Exec(dbQuery, opNum, vm.PgRunNum, opCode, opName, data[0], data[1], data[2], data[3], data[4], data[5], data[6])
+	default:
+		log.Printf("Need to add a case for %d to the opLog() function", len(fields))
+		return
+	}
+	if err != nil {
+		log.Print(err)
+		return
+	}
+	if numRows := commandTag.RowsAffected(); numRows != 1 {
+		log.Printf("Wrong number of rows (%v) affected when logging an operation: %v\n", numRows, opName)
+	}
+
+	// Commit every 10k inserts, so quitting via Ctrl+C keeps the info thus far
+	if (opNum % 10000) == 0 {
+		err = vm.PgTx.Commit()
+		if err != nil {
+			panic(err)
+		}
+		vm.PgTx, err = vm.pg.Begin()
+		if err != nil {
+			panic(err)
+		}
+	}
+	opNum++
+	return
 }
