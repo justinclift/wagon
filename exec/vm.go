@@ -113,7 +113,7 @@ func NewVM(module *wasm.Module, opts ...VMOption) (*VM, error) {
 		copy(vm.memory, module.LinearMemoryIndexSpace[0])
 	}
 
-	vm.funcs = make([]function, len(module.FunctionIndexSpace))
+	vm.funcs = make([]function, len(module.FunctionIndexSpace)) // Holds the compiled functions
 	vm.globals = make([]uint64, len(module.GlobalIndexSpace))
 	vm.newFuncTable()
 	vm.module = module

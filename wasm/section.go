@@ -198,6 +198,8 @@ func (m *Module) readSection(r *readpos.ReadPos) (bool, error) {
 	s.Bytes = sectionBytes.Bytes()
 	*sec.GetRawSection() = s
 	switch s.ID {
+	case SectionIDCustom:
+		// TODO: Move the DWARF debug info extraction code here
 	case SectionIDCode:
 		s := m.Code
 		if m.Function == nil || len(m.Function.Types) == 0 {

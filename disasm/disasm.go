@@ -41,7 +41,7 @@ type Instr struct {
 	Branches []StackInfo
 }
 
-// StackInfo stores details about a new stack created or unwinded by an instruction.
+// StackInfo stores details about a new stack created or unwound by an instruction.
 type StackInfo struct {
 	StackTopDiff int64 // The difference between the stack depths at the end of the block
 	PreserveTop  bool  // Whether the value on the top of the stack should be preserved while unwinding
@@ -102,7 +102,7 @@ func NewDisassembly(fn wasm.Function, module *wasm.Module) (*Disassembly, error)
 	// array for the root stack
 	blockPolymorphicOps := [][]int{{}}
 	// a stack of current execution stack depth values, so that the depth for each
-	// stack is maintained indepepdently for calculating discard values
+	// stack is maintained independently for calculating discard values
 	stackDepths := &stack.Stack{}
 	stackDepths.Push(0)
 	blockIndices := &stack.Stack{} // a stack of indices to operators which start new blocks
@@ -129,6 +129,7 @@ func NewDisassembly(fn wasm.Function, module *wasm.Module) (*Disassembly, error)
 			instr.Unreachable = !isInstrReachable(blockPolymorphicOps)
 		}
 
+		// If the op adds to the stack, make room for it
 		logger.Printf("op: %s, unreachable: %v", opStr.Name, instr.Unreachable)
 		if !opStr.Polymorphic && !instr.Unreachable {
 			top := int(stackDepths.Top())
@@ -141,6 +142,8 @@ func NewDisassembly(fn wasm.Function, module *wasm.Module) (*Disassembly, error)
 				top++
 				stackDepths.SetTop(uint64(top))
 			}
+
+			// Make note of the new stack depth for this function
 			disas.checkMaxDepth(top)
 		}
 
@@ -317,8 +320,15 @@ func NewDisassembly(fn wasm.Function, module *wasm.Module) (*Disassembly, error)
 			instr.Branches = append(instr.Branches, info)
 			pushPolymorphicOp(blockPolymorphicOps, curIndex)
 		case ops.Call, ops.CallIndirect:
+
+			// Retrieve the index of the function to be called
 			index := instr.Immediates[0].(uint32)
+
+			// Make sure the function
+
 			if !instr.Unreachable {
+
+				// Adjust the stack size, making room for the function parameters and return value
 				var sig *wasm.FunctionSig
 				top := int(stackDepths.Top())
 				if op == ops.CallIndirect {
@@ -328,7 +338,11 @@ func NewDisassembly(fn wasm.Function, module *wasm.Module) (*Disassembly, error)
 					sig = &module.Types.Entries[index]
 					top--
 				} else {
-					sig = module.GetFunction(int(index)).Sig
+					// TODO: This is probably temporary, fixable by adding appropriate host function resolving piece
+					foo := module.GetFunction(int(index))
+					if foo != nil {
+						sig = foo.Sig
+					}
 				}
 				top -= len(sig.ParamTypes)
 				top += len(sig.ReturnTypes)

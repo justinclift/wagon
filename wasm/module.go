@@ -51,6 +51,9 @@ type Module struct {
 	Data     *SectionData
 	Customs  []*SectionCustom
 
+	// TODO: Figure out a useful place to put the extracted DWARF info
+	//       Maybe a 'Dwarf  *SectionDebug' matching the above?
+
 	// The function index space of the module
 	FunctionIndexSpace []Function
 	GlobalIndexSpace   []GlobalEntry
@@ -93,8 +96,7 @@ func NewModule() *Module {
 	}
 }
 
-// ResolveFunc is a function that takes a module name and
-// returns a valid resolved module.
+// ResolveFunc is a function that takes a module and function name, returning a valid resolved module.
 type ResolveFunc func(name string) (*Module, error)
 
 // DecodeModule is the same as ReadModule, but it only decodes the module without
