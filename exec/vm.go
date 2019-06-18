@@ -116,6 +116,9 @@ func NewVM(module *wasm.Module, opts ...VMOption) (*VM, error) {
 		opt(&options)
 	}
 
+	// TODO: Move this somewhere better
+	vm.DoOpLogging = true
+
 	// If operation logging is enabled, connect to the database
 	var err error
 	var dbRun int
@@ -427,7 +430,12 @@ outer:
 			break outer
 		case compile.OpJmp:
 			vm.ctx.pc = vm.fetchInt64()
-			opLog(vm, op, "Jmp unconditional", []string{"program_counter"}, []interface{}{vm.ctx.pc})
+
+			var stk uint64
+			if len(vm.ctx.stack) > 0 {
+				stk = vm.ctx.stack[0]
+			}
+			opLog(vm, op, "Jmp unconditional", []string{"program_counter", "stack_top"}, []interface{}{vm.ctx.pc, stk})
 			continue
 		case compile.OpJmpZ:
 			target := vm.fetchInt64()
@@ -440,6 +448,11 @@ outer:
 			preserveTop := vm.fetchBool()
 			discard := vm.fetchInt64()
 
+			var stk uint64
+			if len(vm.ctx.stack) > 0 {
+				stk = vm.ctx.stack[0]
+			}
+
 			z := vm.popUint32()
 			if z != 0 {
 				vm.ctx.pc = target
@@ -451,10 +464,13 @@ outer:
 				if preserveTop {
 					vm.pushUint64(top)
 				}
+				// TODO: Should this capture the stack (etc) state both before and after its changed?
+				opLog(vm, op, "Jmp if Not Zero", []string{"program_counter", "stack_top", "target", "preserve_top", "discard", "condition_met"},
+					[]interface{}{vm.ctx.pc, stk, target, preserveTop, discard, z != 0})
 				continue
 			} else {
-				opLog(vm, op, "Jmp if Not Zero", []string{"program_counter", "stack", "target", "preserve_top", "discard"},
-					[]interface{}{vm.ctx.pc, "stack", target, preserveTop, discard})
+				opLog(vm, op, "Jmp if Not Zero", []string{"program_counter", "stack_top", "target", "preserve_top", "discard", "condition_met"},
+					[]interface{}{vm.ctx.pc, stk, target, preserveTop, discard, z != 0})
 			}
 		case ops.BrTable:
 			index := vm.fetchInt64()
