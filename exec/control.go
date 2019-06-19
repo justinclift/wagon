@@ -11,15 +11,15 @@ import "errors"
 var ErrUnreachable = errors.New("exec: reached unreachable")
 
 func (vm *VM) unreachable() {
+	// Log this operation
+	opLog(vm, 0x0, "Unreachable", []string{"program_counter", "stack_start"},
+		[]interface{}{vm.ctx.pc, vm.ctx.stack})
+
 	panic(ErrUnreachable)
 }
 
 func (vm *VM) nop() {
 	// Log this operation
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
-	opLog(vm, 0x1, "Nop", []string{"program_counter", "stack_top"},
-		[]interface{}{vm.ctx.pc, opStk})
+	opLog(vm, 0x1, "Nop", []string{"program_counter", "stack_start"},
+		[]interface{}{vm.ctx.pc, vm.ctx.stack})
 }

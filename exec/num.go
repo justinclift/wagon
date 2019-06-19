@@ -12,15 +12,42 @@ import (
 // int32 operators
 
 func (vm *VM) i32Clz() {
-	vm.pushUint64(uint64(bits.LeadingZeros32(vm.popUint32())))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popUint32()
+	val := uint64(bits.LeadingZeros32(v1))
+	vm.pushUint64(val)
+
+	// Log this operation
+	opLog(vm, 0x67, "i32 Count leading zero bits", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Ctz() {
-	vm.pushUint64(uint64(bits.TrailingZeros32(vm.popUint32())))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popUint32()
+	val := uint64(bits.TrailingZeros32(v1))
+	vm.pushUint64(val)
+
+	// Log this operation
+	opLog(vm, 0x68, "i32 Count trailing zero bits", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Popcnt() {
-	vm.pushUint64(uint64(bits.OnesCount32(vm.popUint32())))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popUint32()
+	val := uint64(bits.OnesCount32(v1))
+	vm.pushUint64(val)
+
+	// Log this operation
+	opLog(vm, 0x69, "i32 Count number of one bits", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Add() {
@@ -33,36 +60,8 @@ func (vm *VM) i32Add() {
 	vm.pushUint32(val)
 
 	// Log this operation
-	opLog(vm, 0x6A, "i32 add", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+	opLog(vm, 0x6A, "i32 Add", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
 		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
-}
-
-func (vm *VM) i32Mul() {
-	vm.pushUint32(vm.popUint32() * vm.popUint32())
-}
-
-func (vm *VM) i32DivS() {
-	v2 := vm.popInt32()
-	v1 := vm.popInt32()
-	vm.pushInt32(v1 / v2)
-}
-
-func (vm *VM) i32DivU() {
-	v2 := vm.popUint32()
-	v1 := vm.popUint32()
-	vm.pushUint32(v1 / v2)
-}
-
-func (vm *VM) i32RemS() {
-	v2 := vm.popInt32()
-	v1 := vm.popInt32()
-	vm.pushInt32(v1 % v2)
-}
-
-func (vm *VM) i32RemU() {
-	v2 := vm.popUint32()
-	v1 := vm.popUint32()
-	vm.pushUint32(v1 % v2)
 }
 
 func (vm *VM) i32Sub() {
@@ -75,98 +74,302 @@ func (vm *VM) i32Sub() {
 	vm.pushUint32(val)
 
 	// Log this operation
-	opLog(vm, 0x6A, "i32 sub", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+	opLog(vm, 0x6B, "i32 Sub", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
+}
+
+func (vm *VM) i32Mul() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popUint32()
+	v1 := vm.popUint32()
+	val := v1 * v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x6C, "i32 Multiply", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
+}
+
+func (vm *VM) i32DivS() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popInt32()
+	v1 := vm.popInt32()
+	val := v1 / v2
+	vm.pushInt32(val)
+
+	// Log this operation
+	opLog(vm, 0x6D, "i32 Divide signed", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
+}
+
+func (vm *VM) i32DivU() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popUint32()
+	v1 := vm.popUint32()
+	val := v1 / v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x6E, "i32 Divide unsigned", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
+}
+
+func (vm *VM) i32RemS() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popInt32()
+	v1 := vm.popInt32()
+	val := v1 % v2
+	vm.pushInt32(val)
+
+	// Log this operation
+	opLog(vm, 0x6F, "i32 Remainder signed", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
+}
+
+func (vm *VM) i32RemU() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popUint32()
+	v1 := vm.popUint32()
+	val := v1 % v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x70, "i32 Remainder unsigned", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
 		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32And() {
-	vm.pushUint32(vm.popUint32() & vm.popUint32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popUint32()
+	v1 := vm.popUint32()
+	val := v1 & v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x71, "i32 And", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Or() {
-	vm.pushUint32(vm.popUint32() | vm.popUint32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popUint32()
+	v1 := vm.popUint32()
+	val := v1 | v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x72, "i32 Or", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Xor() {
-	vm.pushUint32(vm.popUint32() ^ vm.popUint32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popUint32()
+	v1 := vm.popUint32()
+	val := v1 ^ v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x73, "i32 Xor", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Shl() {
-	v2 := vm.popUint32()
-	v1 := vm.popUint32()
-	vm.pushUint32(v1 << v2)
-}
+	stackStart := vm.ctx.stack
 
-func (vm *VM) i32ShrU() {
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popUint32()
-	vm.pushUint32(v1 >> v2)
+	val := v1 << v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x74, "i32 Shift left", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32ShrS() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popInt32()
-	vm.pushInt32(v1 >> v2)
+	val := v1 >> v2
+	vm.pushInt32(val)
+
+	// Log this operation
+	opLog(vm, 0x75, "i32 Shift right signed", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
+}
+
+func (vm *VM) i32ShrU() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popUint32()
+	v1 := vm.popUint32()
+	val := v1 >> v2
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x76, "i32 Shift right unsigned", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Rotl() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popUint32()
-	vm.pushUint32(bits.RotateLeft32(v1, int(v2)))
+	val := bits.RotateLeft32(v1, int(v2))
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x77, "i32 Rotate left", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Rotr() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popUint32()
-	vm.pushUint32(bits.RotateLeft32(v1, -int(v2)))
+	val := bits.RotateLeft32(v1, -int(v2))
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x78, "i32 Rotate right", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32LeS() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popInt32()
 	v1 := vm.popInt32()
-	vm.pushBool(v1 <= v2)
+	cond := v1 <= v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x4C, "i32 Less than or equal signed", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32LeU() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popUint32()
-	vm.pushBool(v1 <= v2)
+	cond := v1 <= v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x4D, "i32 Less than or equal unsigned", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32LtS() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popInt32()
 	v1 := vm.popInt32()
-	vm.pushBool(v1 < v2)
+	cond := v1 < v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x48, "i32 Less than signed", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32LtU() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popUint32()
-	vm.pushBool(v1 < v2)
+	cond := v1 < v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x49, "i32 Less than unsigned", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32GtS() {
-	v2 := vm.popInt32()
-	v1 := vm.popInt32()
-	vm.pushBool(v1 > v2)
-}
+	stackStart := vm.ctx.stack
 
-func (vm *VM) i32GeS() {
+	// The operation we're logging
 	v2 := vm.popInt32()
 	v1 := vm.popInt32()
-	vm.pushBool(v1 >= v2)
+	cond := v1 > v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x4A, "i32 Greater than signed", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32GtU() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popUint32()
-	vm.pushBool(v1 > v2)
+	cond := v1 > v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x4B, "i32 Greater than unsigned", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
+}
+
+func (vm *VM) i32GeS() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popInt32()
+	v1 := vm.popInt32()
+	cond := v1 >= v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x4E, "i32 Greater than or equal signed", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32GeU() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popUint32()
 	v1 := vm.popUint32()
-	vm.pushBool(v1 >= v2)
+	cond := v1 >= v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x4F, "i32 Greater than or equal unsigned", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Eqz() {
@@ -178,8 +381,8 @@ func (vm *VM) i32Eqz() {
 	vm.pushBool(cond)
 
 	// Log this operation
-	opLog(vm, 0x45, "i32 equal to zero", []string{"program_counter", "condition_met", "value", "stack_start", "stack_finish"},
-		[]interface{}{vm.ctx.pc, cond, val, stackStart, vm.ctx.stack})
+	opLog(vm, 0x45, "i32 Equal to zero", []string{"program_counter", "value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, val, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Eq() {
@@ -192,12 +395,22 @@ func (vm *VM) i32Eq() {
 	vm.pushBool(cond)
 
 	// Log this operation
-	opLog(vm, 0x46, "i32 equal", []string{"program_counter", "arg_1", "arg_2", "condition_met", "stack_start", "stack_finish"},
+	opLog(vm, 0x46, "i32 Equal", []string{"program_counter", "arg_1", "arg_2", "condition_met", "stack_start", "stack_finish"},
 		[]interface{}{vm.ctx.pc, arg1, arg2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Ne() {
-	vm.pushBool(vm.popUint32() != vm.popUint32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popUint32()
+	v1 := vm.popUint32()
+	cond := v1 != v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x47, "i32 Not equal", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 // int64 operators
@@ -357,96 +570,276 @@ func (vm *VM) i64GeU() {
 // float32 operators
 
 func (vm *VM) f32Abs() {
-	vm.pushFloat32(float32(math.Abs(float64(vm.popFloat32()))))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popFloat32()
+	val := float32(math.Abs(float64(v1)))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x8B, "f32 Absolute", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Neg() {
-	vm.pushFloat32(-vm.popFloat32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popFloat32()
+	val := -v1
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x8C, "f32 Negative", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Ceil() {
-	vm.pushFloat32(float32(math.Ceil(float64(vm.popFloat32()))))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popFloat32()
+	val := float32(math.Ceil(float64(v1)))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x8D, "f32 Ceiling", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Floor() {
-	vm.pushFloat32(float32(math.Floor(float64(vm.popFloat32()))))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popFloat32()
+	val := float32(math.Floor(float64(v1)))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x8E, "f32 Floor", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Trunc() {
-	vm.pushFloat32(float32(math.Trunc(float64(vm.popFloat32()))))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popFloat32()
+	val := float32(math.Trunc(float64(v1)))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x8F, "f32 Trunc", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Nearest() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	f := vm.popFloat32()
-	vm.pushFloat32(float32(int32(f + float32(math.Copysign(0.5, float64(f))))))
+	val := float32(int32(f + float32(math.Copysign(0.5, float64(f)))))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x90, "f32 Nearest", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, f, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Sqrt() {
-	vm.pushFloat32(float32(math.Sqrt(float64(vm.popFloat32()))))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v1 := vm.popFloat32()
+	val := float32(math.Sqrt(float64(v1)))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x91, "f32 Square root", []string{"program_counter", "base_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Add() {
-	vm.pushFloat32(vm.popFloat32() + vm.popFloat32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popFloat32()
+	v1 := vm.popFloat32()
+	val := v1 + v2
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x92, "f32 Add", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Sub() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popFloat32()
 	v1 := vm.popFloat32()
-	vm.pushFloat32(v1 - v2)
+	val := v1 - v2
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x93, "f32 Sub", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Mul() {
-	vm.pushFloat32(vm.popFloat32() * vm.popFloat32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popFloat32()
+	v1 := vm.popFloat32()
+	val := v1 * v2
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x94, "f32 Multiply", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Div() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popFloat32()
 	v1 := vm.popFloat32()
-	vm.pushFloat32(v1 / v2)
+	val := v1 / v2
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x95, "f32 Divide", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Min() {
-	vm.pushFloat32(float32(math.Min(float64(vm.popFloat32()), float64(vm.popFloat32()))))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popFloat32()
+	v1 := vm.popFloat32()
+	val := float32(math.Min(float64(v1), float64(v2)))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x96, "f32 Min", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Max() {
-	vm.pushFloat32(float32(math.Max(float64(vm.popFloat32()), float64(vm.popFloat32()))))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popFloat32()
+	v1 := vm.popFloat32()
+	val := float32(math.Max(float64(v1), float64(v2)))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x97, "f32 Max", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Copysign() {
-	vm.pushFloat32(float32(math.Copysign(float64(vm.popFloat32()), float64(vm.popFloat32()))))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popFloat32()
+	v1 := vm.popFloat32()
+	val := float32(math.Copysign(float64(v1), float64(v2)))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x98, "f32 Copy sign", []string{"program_counter", "base_value", "modifier_value", "result_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Eq() {
-	vm.pushBool(vm.popFloat32() == vm.popFloat32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popFloat32()
+	v1 := vm.popFloat32()
+	cond := v1 == v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x5B, "f32 Equal", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Ne() {
-	vm.pushBool(vm.popFloat32() != vm.popFloat32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	v2 := vm.popFloat32()
+	v1 := vm.popFloat32()
+	cond := v1 != v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x5C, "f32 Not equal", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Lt() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popFloat32()
 	v1 := vm.popFloat32()
-	vm.pushBool(v1 < v2)
+	cond := v1 < v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x5D, "f32 Less than", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Gt() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popFloat32()
 	v1 := vm.popFloat32()
-	vm.pushBool(v1 > v2)
+	cond := v1 > v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x5C, "f32 Greater than", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Le() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popFloat32()
 	v1 := vm.popFloat32()
-	vm.pushBool(v1 <= v2)
+	cond := v1 <= v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x5F, "f32 Less than or equal", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Ge() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v2 := vm.popFloat32()
 	v1 := vm.popFloat32()
-	vm.pushBool(v1 >= v2)
+	cond := v1 >= v2
+	vm.pushBool(cond)
+
+	// Log this operation
+	opLog(vm, 0x60, "f32 Greater than or equal", []string{"program_counter", "base_value", "modifier_value", "condition_met", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, v1, v2, cond, stackStart, vm.ctx.stack})
 }
 
 // float64 operators

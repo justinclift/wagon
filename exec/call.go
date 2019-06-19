@@ -36,6 +36,8 @@ func (vm *VM) call() {
 }
 
 func (vm *VM) callIndirect() {
+	stackStart := vm.ctx.stack
+
 	index := vm.fetchUint32()
 	fnExpect := vm.module.Types.Entries[index]
 	_ = vm.fetchUint32() // reserved (https://github.com/WebAssembly/design/blob/27ac254c854994103c24834a994be16f74f54186/BinaryEncoding.md#call-operators-described-here)
@@ -65,5 +67,13 @@ func (vm *VM) callIndirect() {
 		}
 	}
 
+	// Log the start of this operation
+	opLog(vm, 0x11, "Call indirect function start", []string{"program_counter", "function_id", "stack_start"},
+		[]interface{}{vm.ctx.pc, index, stackStart})
+
 	vm.funcs[elemIndex].call(vm, int64(elemIndex))
+
+	// Log the end of this operation
+	opLog(vm, 0x11, "Call indirect function end", []string{"program_counter", "function_id", "stack_finish"},
+		[]interface{}{vm.ctx.pc, index, vm.ctx.stack})
 }

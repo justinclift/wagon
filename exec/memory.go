@@ -47,10 +47,19 @@ func (vm *VM) i32Load() {
 }
 
 func (vm *VM) i32Load8s() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(0) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushInt32(int32(int8(vm.memory[vm.fetchBaseAddr()])))
+	addr := vm.fetchBaseAddr()
+	val := int32(int8(vm.memory[addr]))
+	vm.pushInt32(val)
+
+	// Log this operation
+	opLog(vm, 0x2C, "i32 load 8-bit signed", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Load8u() {
@@ -70,17 +79,35 @@ func (vm *VM) i32Load8u() {
 }
 
 func (vm *VM) i32Load16s() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(1) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushInt32(int32(int16(endianess.Uint16(vm.curMem()))))
+	addr := vm.curMem()
+	val := int32(int16(endianess.Uint16(addr)))
+	vm.pushInt32(val)
+
+	// Log this operation
+	opLog(vm, 0x2E, "i32 load 16-bit signed", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Load16u() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(1) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushUint32(uint32(endianess.Uint16(vm.curMem())))
+	addr := vm.curMem()
+	val := uint32(endianess.Uint16(addr))
+	vm.pushUint32(val)
+
+	// Log this operation
+	opLog(vm, 0x2F, "i32 load 16-bit unsigned", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Load() {
@@ -133,18 +160,37 @@ func (vm *VM) i64Load32u() {
 }
 
 func (vm *VM) f32Store() {
-	v := math.Float32bits(vm.popFloat32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	val := math.Float32bits(vm.popFloat32())
 	if !vm.inBounds(3) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	endianess.PutUint32(vm.curMem(), v)
+	addr := vm.fetchBaseAddr()
+	mem := vm.memory[addr:]
+	endianess.PutUint32(mem, val)
+
+	// Log this operation
+	opLog(vm, 0x38, "f32 store", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Load() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(3) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushFloat32(math.Float32frombits(endianess.Uint32(vm.curMem())))
+	addr := vm.fetchBaseAddr()
+	mem := vm.memory[addr:]
+	val := math.Float32frombits(endianess.Uint32(mem))
+	vm.pushFloat32(val)
+
+	// Log this operation
+	opLog(vm, 0x2A, "f32 load", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f64Store() {
@@ -196,11 +242,20 @@ func (vm *VM) i32Store8() {
 }
 
 func (vm *VM) i32Store16() {
-	v := uint16(vm.popUint32())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	val := uint16(vm.popUint32())
 	if !vm.inBounds(1) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	endianess.PutUint16(vm.curMem(), v)
+	addr := vm.fetchBaseAddr()
+	mem := vm.memory[addr:]
+	endianess.PutUint16(mem, val)
+
+	// Log this operation
+	opLog(vm, 0x3B, "i32 store 16-bit", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Store() {
@@ -236,14 +291,29 @@ func (vm *VM) i64Store32() {
 }
 
 func (vm *VM) currentMemory() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	_ = vm.fetchInt8() // reserved (https://github.com/WebAssembly/design/blob/27ac254c854994103c24834a994be16f74f54186/BinaryEncoding.md#memory-related-operators-described-here)
-	vm.pushInt32(int32(len(vm.memory) / wasmPageSize))
+	val := int32(len(vm.memory) / wasmPageSize)
+	vm.pushInt32(val)
+
+	// Log this operation
+	opLog(vm, 0x3F, "current memory size", []string{"program_counter", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) growMemory() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	_ = vm.fetchInt8() // reserved (https://github.com/WebAssembly/design/blob/27ac254c854994103c24834a994be16f74f54186/BinaryEncoding.md#memory-related-operators-described-here)
 	curLen := len(vm.memory) / wasmPageSize
 	n := vm.popInt32()
 	vm.memory = append(vm.memory, make([]byte, n*wasmPageSize)...)
 	vm.pushInt32(int32(curLen))
+
+	// Log this operation
+	opLog(vm, 0x40, "grow memory", []string{"program_counter", "modifier_value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, n, stackStart, vm.ctx.stack})
 }
