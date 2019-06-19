@@ -5,11 +5,7 @@
 package exec
 
 func (vm *VM) getLocal() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
 
 	// The operation we're logging
 	index := vm.fetchUint32()
@@ -17,17 +13,14 @@ func (vm *VM) getLocal() {
 	vm.pushUint64(val)
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x20, "Get local", []string{"program_counter", "stack_top", "local_id", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, index, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x20, "Get local", []string{"program_counter", "local_id", "value", "locals_start", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, index, val, vm.ctx.locals, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) setLocal() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
+	var localsStart []uint64
+	localsStart = append(localsStart, vm.ctx.locals...)
 
 	// The operation we're logging
 	index := vm.fetchUint32()
@@ -35,17 +28,14 @@ func (vm *VM) setLocal() {
 	vm.ctx.locals[int(index)] = val
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x21, "Set local", []string{"program_counter", "stack_top", "local_id", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, index, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x21, "Set local", []string{"program_counter", "local_id", "value", "locals_start", "locals_finish", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, index, val, localsStart, vm.ctx.locals, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) teeLocal() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
+	localsStart := make([]uint64, len(vm.ctx.locals))
+	copy(localsStart, vm.ctx.locals)
 
 	// The operation we're logging
 	index := vm.fetchUint32()
@@ -53,17 +43,12 @@ func (vm *VM) teeLocal() {
 	vm.ctx.locals[int(index)] = val
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x22, "Tee local", []string{"program_counter", "stack_top", "local_id", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, index, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x22, "Tee local", []string{"program_counter", "local_id", "value", "locals_start", "locals_finish", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, index, val, localsStart, vm.ctx.locals, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) getGlobal() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
 
 	// The operation we're logging
 	index := vm.fetchUint32()
@@ -71,17 +56,12 @@ func (vm *VM) getGlobal() {
 	vm.pushUint64(val)
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x23, "Get global", []string{"program_counter", "stack_top", "from_global", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, index, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x23, "Get global", []string{"program_counter", "from_global", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, index, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) setGlobal() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
 
 	// The operation we're logging
 	index := vm.fetchUint32()
@@ -89,7 +69,6 @@ func (vm *VM) setGlobal() {
 	vm.globals[int(index)] = val
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x24, "Set global", []string{"program_counter", "stack_top", "to_global", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, index, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x24, "Set global", []string{"program_counter", "to_global", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, index, val, stackStart, vm.ctx.stack})
 }

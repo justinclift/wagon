@@ -31,11 +31,7 @@ func (vm *VM) curMem() []byte {
 }
 
 func (vm *VM) i32Load() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
 
 	// The operation we're logging
 	if !vm.inBounds(3) {
@@ -46,9 +42,8 @@ func (vm *VM) i32Load() {
 	vm.pushUint32(val)
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x28, "i32 load", []string{"program_counter", "stack_top", "memory_address", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, addr, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x28, "i32 load", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Load8s() {
@@ -59,11 +54,7 @@ func (vm *VM) i32Load8s() {
 }
 
 func (vm *VM) i32Load8u() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
 
 	// The operation we're logging
 	if !vm.inBounds(0) {
@@ -74,9 +65,8 @@ func (vm *VM) i32Load8u() {
 	vm.pushUint32(val)
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x2D, "i32 load 8-bit unsigned", []string{"program_counter", "stack_top", "memory_address", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, addr, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x2D, "i32 load 8-bit unsigned", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Load16s() {
@@ -173,11 +163,7 @@ func (vm *VM) f64Load() {
 }
 
 func (vm *VM) i32Store() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
 
 	// The operation we're logging
 	val := vm.popUint32()
@@ -189,17 +175,12 @@ func (vm *VM) i32Store() {
 	endianess.PutUint32(mem, val)
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x36, "i32 store", []string{"program_counter", "stack_top", "memory_address", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, addr, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x36, "i32 store", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Store8() {
-	stackLenStart := len(vm.ctx.stack)
-	var opStk uint64
-	if len(vm.ctx.stack) > 0 {
-		opStk = vm.ctx.stack[0]
-	}
+	stackStart := vm.ctx.stack
 
 	// The operation we're logging
 	val := byte(uint8(vm.popUint32()))
@@ -210,9 +191,8 @@ func (vm *VM) i32Store8() {
 	vm.memory[addr] = val
 
 	// Log this operation
-	stackLenFinish := len(vm.ctx.stack)
-	opLog(vm, 0x3A, "i32 store 8-bit", []string{"program_counter", "stack_top", "memory_address", "value", "stack_length_start", "stack_length_finish"},
-		[]interface{}{vm.ctx.pc, opStk, addr, val, stackLenStart, stackLenFinish})
+	opLog(vm, 0x3A, "i32 store 8-bit", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Store16() {

@@ -108,7 +108,7 @@ func EnableAOT(v bool) VMOption {
 }
 
 // PGConnPool passes a pre-established PostgreSQL connection pool, for
-// logging all operations through
+// logging all operations through.
 func PGConnPool(p *pgx.ConnPool) VMOption {
 	return func(c *config) {
 		c.PGConnPool = p
@@ -116,7 +116,7 @@ func PGConnPool(p *pgx.ConnPool) VMOption {
 }
 
 // PGDBRun passes the "execution run" number, used to identify all logging
-// operations in a giving profiling run.
+// operations in a given execution run.
 func PGDBRun(i int) VMOption {
 	return func(c *config) {
 		c.PGDBRun = i
@@ -141,6 +141,8 @@ func NewVM(module *wasm.Module, opts ...VMOption) (*VM, error) {
 		vm.PgRunNum = options.PGDBRun
 
 		// Begin a PostgreSQL transaction
+		// TODO: Find out if pgx.BeginBatch() would be useful here, as opposed to changing this to an in-memory
+		//       structure, suitable for using with COPY FROM
 		vm.pg = options.PGConnPool
 		vm.PgTx, err = vm.pg.Begin()
 		if err != nil {
@@ -432,15 +434,11 @@ outer:
 	for int(vm.ctx.pc) < len(vm.ctx.code) && !vm.abort {
 		op := vm.ctx.code[vm.ctx.pc]
 		vm.ctx.pc++
-		opStk := uint64(0) // Only used for opLogging
 		switch op {
 		case ops.Return:
 
 			// Log this operation
-			if len(vm.ctx.stack) > 0 {
-				opStk = vm.ctx.stack[0]
-			}
-			opLog(vm, op, "Return", []string{"program_counter", "stack_top"}, []interface{}{vm.ctx.pc, opStk})
+			opLog(vm, op, "Return", []string{"program_counter", "stack_start"}, []interface{}{vm.ctx.pc, vm.ctx.stack})
 
 			break outer
 		case compile.OpJmp:
@@ -448,46 +446,31 @@ outer:
 			vm.ctx.pc = vm.fetchInt64()
 
 			// Log this operation
-			if len(vm.ctx.stack) > 0 {
-				opStk = vm.ctx.stack[0]
-			}
-			opLog(vm, op, "Jmp unconditional", []string{"program_counter", "stack_top", "target"},
-				[]interface{}{origPC, opStk, vm.ctx.pc})
-			continue
+			opLog(vm, op, "Jmp unconditional", []string{"program_counter", "stack_start", "target"},
+				[]interface{}{origPC, vm.ctx.stack, vm.ctx.pc})
 		case compile.OpJmpZ:
-			stackLenStart := len(vm.ctx.stack)
-
-			target := vm.fetchInt64()
 			origPC := vm.ctx.pc
+			stackStart := vm.ctx.stack
 
-			stackLenFinish := len(vm.ctx.stack)
-
+			// The operation we're logging
+			target := vm.fetchInt64()
 			cond := vm.popUint32() == 0
-			opLog(vm, op, "Jmp if zero", []string{"program_counter", "stack_top", "condition_met", "target", "stack_length_start", "stack_length_finish"},
-				[]interface{}{origPC, opStk, cond, target, stackLenStart, stackLenFinish})
-
 			if cond {
 				vm.ctx.pc = target
-				continue
 			}
-		case compile.OpJmpNz:
-			stackLenStart := len(vm.ctx.stack)
 
+			// Log this operation
+			opLog(vm, op, "Jmp if zero", []string{"program_counter", "stack_start", "stack_finish", "condition_met", "target"},
+				[]interface{}{origPC, stackStart, vm.ctx.stack, cond, target})
+		case compile.OpJmpNz:
+			origPC := vm.ctx.pc
+			stackStart := vm.ctx.stack
+
+			// The operation we're logging
 			target := vm.fetchInt64()
 			preserveTop := vm.fetchBool()
 			discard := vm.fetchInt64()
 			cond := vm.popUint32() != 0
-
-			stackLenFinish := len(vm.ctx.stack)
-
-			// Log this operation
-			if len(vm.ctx.stack) > 0 {
-				opStk = vm.ctx.stack[0]
-			}
-			origPC := vm.ctx.pc
-			opLog(vm, op, "Jmp if Not Zero / branch if", []string{"program_counter", "stack_top", "target", "preserve_top", "discard", "condition_met", "stack_length_start", "stack_length_finish"},
-				[]interface{}{origPC, opStk, target, preserveTop, discard, cond, stackLenStart, stackLenFinish})
-
 			if cond {
 				vm.ctx.pc = target
 				var top uint64
@@ -498,8 +481,11 @@ outer:
 				if preserveTop {
 					vm.pushUint64(top)
 				}
-				continue
 			}
+
+			// Log this operation
+			opLog(vm, op, "Jmp if Not Zero / branch if", []string{"program_counter", "stack_start", "stack_finish", "target", "preserve_top", "discard", "condition_met"},
+				[]interface{}{origPC, stackStart, vm.ctx.stack, target, preserveTop, discard, cond})
 		case ops.BrTable:
 			index := vm.fetchInt64()
 			label := vm.popInt32()
@@ -682,7 +668,7 @@ func opLog(vm *VM, opCode byte, opName string, fields []string, data []interface
 		log.Printf("Wrong number of rows (%v) affected when logging an operation: %v\n", numRows, opName)
 	}
 
-	// Commit every 10k inserts, so quitting via Ctrl+C keeps the info thus far
+	// Commit every 10k inserts, so quitting via Ctrl+C keeps the majority of info thus far
 	if (opNum % 10000) == 0 {
 		err = vm.PgTx.Commit()
 		if err != nil {
