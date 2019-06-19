@@ -515,15 +515,33 @@ outer:
 			}
 			continue
 		case compile.OpDiscard:
+			stackStart := append(make([]uint64, len(vm.ctx.stack)), vm.ctx.stack...) // Create a separate copy, to be safe
+
+			// The operation we're logging
 			place := vm.fetchInt64()
 			vm.ctx.stack = vm.ctx.stack[:len(vm.ctx.stack)-int(place)]
+
+			// Log this operation
+			opLog(vm, op, "Discard", []string{"program_counter", "stack_start", "stack_finish"},
+				[]interface{}{vm.ctx.pc, stackStart, vm.ctx.stack})
 		case compile.OpDiscardPreserveTop:
+			stackStart := append(make([]uint64, len(vm.ctx.stack)), vm.ctx.stack...) // Create a separate copy, to be safe
+
+			// The operation we're logging
 			top := vm.ctx.stack[len(vm.ctx.stack)-1]
 			place := vm.fetchInt64()
 			vm.ctx.stack = vm.ctx.stack[:len(vm.ctx.stack)-int(place)]
 			vm.pushUint64(top)
 
+			// Log this operation
+			opLog(vm, op, "Discard preserving top stack value", []string{"program_counter", "stack_start", "stack_finish"},
+				[]interface{}{vm.ctx.pc, stackStart, vm.ctx.stack})
 		case ops.WagonNativeExec:
+			// Log this operation
+			opLog(vm, op, "Wagon native execution op - shouldn't happen", []string{"program_counter", "stack_start"},
+				[]interface{}{vm.ctx.pc, vm.ctx.stack})
+
+			// The operation we're logging
 			i := vm.fetchUint32()
 			vm.nativeCodeInvocation(i)
 		default:
