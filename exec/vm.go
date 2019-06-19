@@ -12,7 +12,6 @@ import (
 	"io"
 	"log"
 	"math"
-	"time"
 
 	"github.com/go-interpreter/wagon/disasm"
 	"github.com/go-interpreter/wagon/exec/internal/compile"
@@ -77,11 +76,10 @@ type VM struct {
 
 	nativeBackend *nativeCompiler
 
-	DoOpLogging bool
-	pg          *pgx.ConnPool
-	PgTx        *pgx.Tx
-	PgRunNum    int
-	PGConfig    pgx.ConnConfig
+	// PostgreSQL pieces, for Operating Logging
+	pg       *pgx.ConnPool
+	PgTx     *pgx.Tx
+	PgRunNum int
 }
 
 // As per the WebAssembly spec: https://github.com/WebAssembly/design/blob/27ac254c854994103c24834a994be16f74f54186/Semantics.md#linear-memory
@@ -92,7 +90,9 @@ var endianess = binary.LittleEndian
 var opNum int // Simple counter for operation logging
 
 type config struct {
-	EnableAOT bool
+	EnableAOT  bool
+	PGConnPool *pgx.ConnPool
+	PGDBRun    int
 }
 
 // VMOption describes a customization that can be applied to the VM.
@@ -107,44 +107,41 @@ func EnableAOT(v bool) VMOption {
 	}
 }
 
+// PGConnPool passes a pre-established PostgreSQL connection pool, for
+// logging all operations through
+func PGConnPool(p *pgx.ConnPool) VMOption {
+	return func(c *config) {
+		c.PGConnPool = p
+	}
+}
+
+// PGDBRun passes the "execution run" number, used to identify all logging
+// operations in a giving profiling run.
+func PGDBRun(i int) VMOption {
+	return func(c *config) {
+		c.PGDBRun = i
+	}
+}
+
 // NewVM creates a new VM from a given module and options. If the module defines
 // a start function, it will be executed.
 func NewVM(module *wasm.Module, opts ...VMOption) (*VM, error) {
-	var vm VM
-	var options config
+	var (
+		vm      VM
+		options config
+		err     error
+	)
 	for _, opt := range opts {
 		opt(&options)
 	}
 
-	// TODO: Move this somewhere better
-	vm.DoOpLogging = true
-
-	// If operation logging is enabled, connect to the database
-	var err error
-	if vm.DoOpLogging {
-		vm.PGConfig = pgx.ConnConfig{
-			Host:      "/tmp",
-			User:      "jc",
-			Database:  "wasim",
-			TLSConfig: nil,
-		}
-
-		pgPoolConfig := pgx.ConnPoolConfig{vm.PGConfig, 45, nil, 5 * time.Second}
-		vm.pg, err = pgx.NewConnPool(pgPoolConfig)
-		if err != nil {
-			panic(err)
-		}
-
-		// Grab the next available execution_run number
-		dbQuery := `SELECT nextval('execution_runs_seq')`
-		err = vm.pg.QueryRow(dbQuery).Scan(&vm.PgRunNum)
-		if err != nil {
-			log.Printf("Retrieving next execution run number failed: %v\n", err)
-			return nil, err
-		}
-		log.Printf("opLog execution run: %d\n", vm.PgRunNum)
+	// If a PostgreSQL Connection Pool was passed, set up the needed Operation Logging pieces
+	if options.PGConnPool != nil {
+		// Set the execution run number
+		vm.PgRunNum = options.PGDBRun
 
 		// Begin a PostgreSQL transaction
+		vm.pg = options.PGConnPool
 		vm.PgTx, err = vm.pg.Begin()
 		if err != nil {
 			panic(err)
@@ -635,7 +632,8 @@ func (proc *Process) Terminate() {
 // Send the opcode data to the database for post-run analysis.  For now we don't return any error code, just to keep
 // the likely bulk code changes somewhat simple
 func opLog(vm *VM, opCode byte, opName string, fields []string, data []interface{}) {
-	if !vm.DoOpLogging {
+	if vm.pg == nil {
+		// Operating logging isn't enabled
 		return
 	}
 	if len(fields) != len(data) {
