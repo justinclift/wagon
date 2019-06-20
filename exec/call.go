@@ -23,16 +23,18 @@ func (vm *VM) call() {
 	// Fetch the number of the function to call
 	index := vm.fetchUint32()
 
+
 	// Log the start of this operation
-	opLog(vm, 0x10, "Call function start", []string{"program_counter", "function_id", "stack_start"},
-		[]interface{}{vm.ctx.pc, index, stackStart})
+	fName := vm.module.FunctionIndexSpace[index].Name
+	opLog(vm, 0x10, "Call function start", []string{"program_counter", "function_id", "function_name", "stack_start"},
+		[]interface{}{vm.ctx.pc, index, fName, stackStart})
 
 	// Do the call
 	vm.funcs[index].call(vm, int64(index))
 
 	// Log the end of this operation
-	opLog(vm, 0x10, "Call function end", []string{"program_counter", "function_id", "stack_finish"},
-		[]interface{}{vm.ctx.pc, index, vm.ctx.stack})
+	opLog(vm, 0x10, "Call function end", []string{"program_counter", "function_id", "function_name", "stack_finish"},
+		[]interface{}{vm.ctx.pc, index, fName, vm.ctx.stack})
 }
 
 func (vm *VM) callIndirect() {
