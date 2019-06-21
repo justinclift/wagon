@@ -7,10 +7,7 @@ package wasm
 import (
 	"bytes"
 	"fmt"
-	"io"
 	"reflect"
-
-	"github.com/go-interpreter/wagon/wasm/leb128"
 )
 
 type InvalidTableIndexError uint32
@@ -43,68 +40,28 @@ func (m *Module) populateFunctions() error {
 	}
 
 	// If present, extract the function names from the custom 'name' section (LLVM generates these)
-	names := make(map[int]string)
-	for _, j := range m.Customs {
-		if j.Name == "name" {
-			// Ensure sure the first byte is 0x1
-			b := bytes.NewReader(j.Data)
-			z := make([]byte, 1)
-			if _, err := io.ReadFull(b, z); err != nil {
-				return err
-			}
-			if z[0] != 1 {
-				return nil
-			}
-
-			// Get the length of the remaining section
-			l, err := leb128.ReadVarUint32(b)
+	var names NameMap
+	if s := m.Custom(CustomSectionName); s != nil {
+		var nSec NameSection
+		err := nSec.UnmarshalWASM(bytes.NewReader(s.Data))
+		if err != nil {
+			return err
+		}
+		if len(nSec.Types[NameFunction]) > 0 {
+			sub, err := nSec.Decode(NameFunction)
 			if err != nil {
 				return err
 			}
-			sec := make([]byte, int(l))
-			n, err := b.Read(sec)
-			if err != nil {
-				return err
-			}
-			if n != len(sec) {
-				return fmt.Errorf("length mismatch (%d vs %d) when reading custom name section data", n, len(sec))
-			}
-
-			// The first value contains the number of functions in this name section
-			x := bytes.NewReader(sec)
-			numFuncs, err := leb128.ReadVarUint32(x)
-			if err != nil {
-				return err
-			}
-			for i := 0; i < int(numFuncs); i++ {
-				// Each function name entry contains:
-				//   * Its function number (eg 0, 1, 2, etc)
-				//   * The length of the name in bytes. eg 10 for "wasm_stuff"
-				//   * The name of the function
-				index, err := leb128.ReadVarUint32(x)
-				if err != nil {
-					return err
-				}
-				nameLen, err := leb128.ReadVarUint32(x)
-				if err != nil {
-					return err
-				}
-				name := make([]byte, int(nameLen))
-				n, err := x.Read(name)
-				if err != nil {
-					return err
-				}
-				if n != len(name) {
-					return fmt.Errorf("length mismatch (%d vs %d) when reading custom name section data", n, len(name))
-				}
-				names[int(index)] = string(name)
+			funcs, ok := sub.(*FunctionNames)
+			if ok {
+				names = funcs.Names
 			}
 		}
 	}
 
 	// If available, fill in the name field for the imported functions
 	for i := range m.FunctionIndexSpace {
-		m.FunctionIndexSpace[i].Name = names[i]
+		m.FunctionIndexSpace[i].Name = names[uint32(i)]
 	}
 
 	// Add the functions from the wasm itself to the function list
@@ -118,7 +75,7 @@ func (m *Module) populateFunctions() error {
 		fn := Function{
 			Sig:  &m.Types.Entries[typeIndex],
 			Body: &m.Code.Bodies[codeIndex],
-			Name: names[codeIndex+numImports], // Add the name string if we have it
+			Name: names[uint32(codeIndex+numImports)], // Add the name string if we have it
 		}
 
 		m.FunctionIndexSpace = append(m.FunctionIndexSpace, fn)
