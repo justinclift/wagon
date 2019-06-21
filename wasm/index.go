@@ -167,7 +167,7 @@ func (m *Module) populateTables() error {
 	}
 
 	for _, elem := range m.Elements.Entries {
-		// the MVP dictates that index should always be zero, we shuold
+		// the MVP dictates that index should always be zero, we should
 		// probably check this
 		if int(elem.Index) >= len(m.TableIndexSpace) {
 			return InvalidTableIndexError(elem.Index)
