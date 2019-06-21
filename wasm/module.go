@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"strings"
 
 	"github.com/go-interpreter/wagon/wasm/internal/readpos"
 )
@@ -52,9 +53,6 @@ type Module struct {
 	Data     *SectionData
 	Customs  []*SectionCustom
 
-	// TODO: Figure out a useful place to put the extracted DWARF info
-	//       Maybe a 'Dwarf  *SectionDebug' matching the above?
-
 	// The function index space of the module
 	FunctionIndexSpace []Function
 	GlobalIndexSpace   []GlobalEntry
@@ -63,6 +61,10 @@ type Module struct {
 	// the limit of each table is its capacity (cap)
 	TableIndexSpace        [][]uint32
 	LinearMemoryIndexSpace [][]byte
+
+	// Dwarf byte data
+	// TODO: Add parsed Debug data
+	Dwarf map[string][]byte
 
 	imports struct {
 		Funcs    []uint32
@@ -124,9 +126,21 @@ func DecodeModule(r io.Reader) (*Module, error) {
 		if err != nil {
 			return nil, err
 		} else if done {
-			return m, nil
+			break
 		}
 	}
+
+	// Extract any individual DWARF sections
+	if l := len(m.Customs); l > 0 {
+		m.Dwarf = make(map[string][]byte, l)
+	}
+	for _, sec := range m.Customs {
+		if strings.HasPrefix(sec.Name, ".debug_") {
+			name := strings.TrimPrefix(sec.Name, ".debug_")
+			m.Dwarf[name] = sec.Data
+		}
+	}
+	return m, nil
 }
 
 // ReadModule reads a module from the reader r. resolvePath must take a string
