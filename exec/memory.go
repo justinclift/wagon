@@ -117,8 +117,8 @@ func (vm *VM) i64Load() {
 	if !vm.inBounds(7) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	addr := vm.curMem()
-	val := endianess.Uint64(addr)
+	addr := vm.fetchBaseAddr()
+	val := endianess.Uint64(vm.memory[addr:])
 	vm.pushUint64(val)
 
 	// Log this operation

@@ -4,7 +4,10 @@
 
 package exec
 
-import "errors"
+import (
+	"errors"
+	"strings"
+)
 
 var (
 	// ErrSignatureMismatch is the error value used while trapping the VM when
@@ -23,18 +26,27 @@ func (vm *VM) call() {
 	// Fetch the number of the function to call
 	index := vm.fetchUint32()
 
-
 	// Log the start of this operation
 	fName := vm.module.FunctionIndexSpace[index].Name
-	opLog(vm, 0x10, "Call function start", []string{"program_counter", "function_id", "function_name", "stack_start"},
-		[]interface{}{vm.ctx.pc, index, fName, stackStart})
+	opFields := []string{"program_counter", "function_id", "function_name", "stack_start"}
+	opData := []interface{}{vm.ctx.pc, index, fName, stackStart}
+	if strings.HasPrefix(fName, "syscall/js") {
+		opFields = append(opFields, "mem_image")
+		opData = append(opData, vm.memory)
+	}
+	opLog(vm, 0x10, "Call function start", opFields, opData)
 
 	// Do the call
 	vm.funcs[index].call(vm, int64(index))
 
 	// Log the end of this operation
-	opLog(vm, 0x10, "Call function end", []string{"program_counter", "function_id", "function_name", "stack_finish"},
-		[]interface{}{vm.ctx.pc, index, fName, vm.ctx.stack})
+	opFields = []string{"program_counter", "function_id", "function_name", "stack_finish"}
+	opData = []interface{}{vm.ctx.pc, index, fName, vm.ctx.stack}
+	if strings.HasPrefix(fName, "syscall/js") {
+		opFields = append(opFields, "mem_image")
+		opData = append(opData, vm.memory)
+	}
+	opLog(vm, 0x10, "Call function end", opFields, opData)
 }
 
 func (vm *VM) callIndirect() {
