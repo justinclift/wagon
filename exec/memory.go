@@ -111,52 +111,115 @@ func (vm *VM) i32Load16u() {
 }
 
 func (vm *VM) i64Load() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(7) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushUint64(endianess.Uint64(vm.curMem()))
+	addr := vm.curMem()
+	val := endianess.Uint64(addr)
+	vm.pushUint64(val)
+
+	// Log this operation
+	opLog(vm, 0x29, "i64 load", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Load8s() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(0) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushInt64(int64(int8(vm.memory[vm.fetchBaseAddr()])))
+	addr := vm.fetchBaseAddr()
+	val := int64(int8(vm.memory[addr]))
+	vm.pushInt64(val)
+
+	// Log this operation
+	opLog(vm, 0x30, "i64 load 8-bit signed", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Load8u() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(0) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushUint64(uint64(uint8(vm.memory[vm.fetchBaseAddr()])))
+	addr := vm.fetchBaseAddr()
+	val := uint64(uint8(vm.memory[addr]))
+	vm.pushUint64(val)
+
+	// Log this operation
+	opLog(vm, 0x31, "i64 load 8-bit unsigned", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Load16s() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(1) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushInt64(int64(int16(endianess.Uint16(vm.curMem()))))
+	addr := vm.fetchBaseAddr()
+	val := int64(int16(endianess.Uint16(vm.memory[addr:])))
+	vm.pushInt64(val)
+
+	// Log this operation
+	opLog(vm, 0x32, "i64 load 16-bit signed", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Load16u() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(1) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushUint64(uint64(endianess.Uint16(vm.curMem())))
+	addr := vm.fetchBaseAddr()
+	val := uint64(endianess.Uint16(vm.memory[addr:]))
+	vm.pushUint64(val)
+
+	// Log this operation
+	opLog(vm, 0x33, "i64 load 16-bit unsigned", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Load32s() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(3) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushInt64(int64(int32(endianess.Uint32(vm.curMem()))))
+	addr := vm.fetchBaseAddr()
+	val := int64(int32(endianess.Uint32(vm.memory[addr:])))
+	vm.pushInt64(val)
+
+	// Log this operation
+	opLog(vm, 0x34, "i64 load 32-bit signed", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Load32u() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(3) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushUint64(uint64(endianess.Uint32(vm.curMem())))
+	addr := vm.fetchBaseAddr()
+	val := uint64(endianess.Uint32(vm.memory[addr:]))
+	vm.pushUint64(val)
+
+	// Log this operation
+	opLog(vm, 0x35, "i64 load 32-bit signed", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f32Store() {
@@ -168,8 +231,7 @@ func (vm *VM) f32Store() {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
 	addr := vm.fetchBaseAddr()
-	mem := vm.memory[addr:]
-	endianess.PutUint32(mem, val)
+	endianess.PutUint32(vm.memory[addr:], val)
 
 	// Log this operation
 	opLog(vm, 0x38, "f32 store", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
@@ -184,8 +246,7 @@ func (vm *VM) f32Load() {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
 	addr := vm.fetchBaseAddr()
-	mem := vm.memory[addr:]
-	val := math.Float32frombits(endianess.Uint32(mem))
+	val := math.Float32frombits(endianess.Uint32(vm.memory[addr:]))
 	vm.pushFloat32(val)
 
 	// Log this operation
@@ -194,18 +255,35 @@ func (vm *VM) f32Load() {
 }
 
 func (vm *VM) f64Store() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	v := math.Float64bits(vm.popFloat64())
 	if !vm.inBounds(7) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	endianess.PutUint64(vm.curMem(), v)
+	addr := vm.fetchBaseAddr()
+	endianess.PutUint64(vm.memory[addr:], v)
+
+	// Log this operation
+	opLog(vm, 0x38, "f64 store", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, v, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) f64Load() {
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
 	if !vm.inBounds(7) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.pushFloat64(math.Float64frombits(endianess.Uint64(vm.curMem())))
+	addr := vm.fetchBaseAddr()
+	val := math.Float64frombits(endianess.Uint64(vm.memory[addr:]))
+	vm.pushFloat64(val)
+
+	// Log this operation
+	opLog(vm, 0x2B, "f64 load", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i32Store() {
@@ -217,8 +295,7 @@ func (vm *VM) i32Store() {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
 	addr := vm.fetchBaseAddr()
-	mem := vm.memory[addr:]
-	endianess.PutUint32(mem, val)
+	endianess.PutUint32(vm.memory[addr:], val)
 
 	// Log this operation
 	opLog(vm, 0x36, "i32 store", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
@@ -250,8 +327,7 @@ func (vm *VM) i32Store16() {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
 	addr := vm.fetchBaseAddr()
-	mem := vm.memory[addr:]
-	endianess.PutUint16(mem, val)
+	endianess.PutUint16(vm.memory[addr:], val)
 
 	// Log this operation
 	opLog(vm, 0x3B, "i32 store 16-bit", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
@@ -259,35 +335,67 @@ func (vm *VM) i32Store16() {
 }
 
 func (vm *VM) i64Store() {
-	v := vm.popUint64()
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	val := vm.popUint64()
 	if !vm.inBounds(7) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	endianess.PutUint64(vm.curMem(), v)
+	addr := vm.fetchBaseAddr()
+	endianess.PutUint64(vm.memory[addr:], val)
+
+	// Log this operation
+	opLog(vm, 0x37, "i64 store", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Store8() {
-	v := byte(uint8(vm.popUint64()))
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	val := byte(uint8(vm.popUint64()))
 	if !vm.inBounds(0) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	vm.memory[vm.fetchBaseAddr()] = v
+	addr := vm.fetchBaseAddr()
+	vm.memory[addr] = val
+
+	// Log this operation
+	opLog(vm, 0x3C, "i64 store 8-bit", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Store16() {
-	v := uint16(vm.popUint64())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	val := uint16(vm.popUint64())
 	if !vm.inBounds(1) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	endianess.PutUint16(vm.curMem(), v)
+	addr := vm.fetchBaseAddr()
+	endianess.PutUint16(vm.memory[addr:], val)
+
+	// Log this operation
+	opLog(vm, 0x3D, "i64 store 16-bit", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) i64Store32() {
-	v := uint32(vm.popUint64())
+	stackStart := vm.ctx.stack
+
+	// The operation we're logging
+	val := uint32(vm.popUint64())
 	if !vm.inBounds(3) {
 		panic(ErrOutOfBoundsMemoryAccess)
 	}
-	endianess.PutUint32(vm.curMem(), v)
+	addr := vm.fetchBaseAddr()
+	endianess.PutUint32(vm.memory[addr:], val)
+
+	// Log this operation
+	opLog(vm, 0x3E, "i64 store 32-bit", []string{"program_counter", "memory_address", "value", "stack_start", "stack_finish"},
+		[]interface{}{vm.ctx.pc, addr, val, stackStart, vm.ctx.stack})
 }
 
 func (vm *VM) currentMemory() {
