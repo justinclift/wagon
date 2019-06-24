@@ -686,8 +686,8 @@ func opLog(vm *VM, opCode byte, opName string, fields []string, data []interface
 		log.Printf("Wrong number of rows (%v) affected when logging an operation: %v\n", numRows, opName)
 	}
 
-	// Commit every 10k inserts, so quitting via Ctrl+C keeps the majority of info thus far
-	if (opNum % 10000) == 0 {
+	// Commit every 100 inserts, so quitting via Ctrl+C keeps the majority of info thus far
+	if (opNum % 100) == 0 {
 		err = vm.PgTx.Commit()
 		if err != nil {
 			panic(err)
